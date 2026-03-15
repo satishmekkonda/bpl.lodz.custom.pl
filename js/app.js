@@ -6,6 +6,14 @@ let pairs = [];
 let matches = [];
 let isManualMode = false;
 
+// Playoff's global object
+let playoffScores = {
+    q1: { sA: '', sB: '', done: false, teamA: '', teamB: '' },
+    elim: { sA: '', sB: '', done: false, teamA: '', teamB: '' },
+    q2: { sA: '', sB: '', done: false, teamA: '', teamB: '' },
+    final: { sA: '', sB: '', done: false, teamA: '', teamB: '' }
+};
+
 // Initialize EmailJS 
 (function(){ emailjs.init("YOUR_PUBLIC_KEY"); })();
     const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -33,13 +41,21 @@ window.onload = function() {
 
     // Run your loadData function
     loadData();
+
+    // 4. NEW: Redirect to the last saved step
+    const lastStep = localStorage.getItem('bpl_last_step');
+    if (lastStep) {
+        showStep(lastStep);
+    } else {
+        showStep('step-welcome'); // Default if no history exists
+    }
 };
 	
 //Not lose Entered Data on refresh
 function saveData() {
     // Added playoffScores to the object below
     const data = { advPlayers, intPlayers, manualPlayers, pairs, matches, isManualMode, playoffScores }; 
-    localStorage.setItem('bpl_2026_data', JSON.stringify(data));
+    localStorage.setItem('bpl_2026_custom_data', JSON.stringify(data));
 
     // Mirror data to the cloud
     if (typeof db !== 'undefined') {
@@ -48,7 +64,7 @@ function saveData() {
 }
 
 function loadData() {
-    const saved = localStorage.getItem('bpl_2026_data');
+    const saved = localStorage.getItem('bpl_2026_custom_data');
     const lastStep = localStorage.getItem('bpl_last_step');
     
     if (saved) {
@@ -143,7 +159,7 @@ function goBackFromCourts() {
 // Clears Saved Data
 function clearTournament() {
     if (confirm("Are you sure? This will delete all current players, matches, and scores.")) {
-        localStorage.removeItem('bpl_2026_data');
+        localStorage.removeItem('bpl_2026_custom_data');
         location.reload();
     }
 }

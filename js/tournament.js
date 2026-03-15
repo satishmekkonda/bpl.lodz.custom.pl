@@ -1,11 +1,3 @@
-// Playoff's global object
-let playoffScores = {
-    q1: { sA: '', sB: '', done: false, teamA: '', teamB: '' },
-    elim: { sA: '', sB: '', done: false, teamA: '', teamB: '' },
-    q2: { sA: '', sB: '', done: false, teamA: '', teamB: '' },
-    final: { sA: '', sB: '', done: false, teamA: '', teamB: '' }
-};
-
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
@@ -41,6 +33,17 @@ function handleLogout() {
 
 // --- SCHEDULE GENERATION (Rotational Logic) ---
 function generateSchedule() {
+    // --- NEW: PREVENTION CHECK ---
+    // Added to prevent accidental reshuffling when you just want to view the schedule
+    if (matches && matches.length > 0) {
+        const confirmReshuffle = confirm("A schedule already exists, are you sure you want to RE-GENERATE?");
+        if (!confirmReshuffle) {
+            // If they cancel, just take them to the existing overview without changing anything
+            showStep('step-schedule-overview');
+            return; 
+        }
+    }
+
     const courtLimit = parseInt(document.getElementById('court-count').value);
     const rrSets = parseInt(document.getElementById('rr-matches').value) || 1;
     let [startH, startM] = document.getElementById('start-time').value.split(':').map(Number);

@@ -101,19 +101,6 @@
         </details>
     </div>
 
-    <!-- 2. Score Matrix -->
-    <div class="section-card">
-        <details>
-            <summary>
-                <h2>🔢 Score Matrix</h2>
-                <div class="expand-hint">Click to View Matrix</div>
-            </summary>
-            <div class="table-responsive" style="margin-top: 20px;">
-                <table id="matrix-table" class="results-table"></table>
-            </div>
-        </details>
-    </div>
-
     <!-- 3. Points Table -->
     <div class="section-card">
         <details open> <!-- Points table stays open by default as it is most important -->
@@ -198,9 +185,10 @@
     });
 
     function updateLiveUI(data) {
-        const { matches, pairs, playoffScores, finished } = data;
+        // Notice we are pulling advPlayers and intPlayers now, not pairs
+        const { matches, advPlayers, intPlayers, playoffScores, finished } = data;
 
-        // --- Handle Finish Overlay (Image-Safe Version) ---
+        // --- Handle Finish Overlay ---
         const overlay = document.getElementById('final-results-overlay');
         if (finished) {
             overlay.style.visibility = 'visible';
@@ -212,64 +200,58 @@
             overlay.style.margin = '0';
         }
 
-        // Schedule
+        // --- Schedule ---
         if(matches) {
             document.getElementById('schedule-body').innerHTML = matches.map(m => {
-            // Logic to determine the score string
-            const statusContent = m.done 
-                ? `<strong>${m.sA} - ${m.sB}</strong>` 
-                : `⏳ Not Started`;
-            return `
-                <tr>
-                    <td>R ${m.round}</td><td>C ${m.court}</td><td>${m.time}</td>
-                    <td style="font-weight:bold;">${pairs[m.tA].name} vs ${pairs[m.tB].name}</td>
-                <td>
-                    <span style="padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; ${m.done ? 'background: #dcfce7; color: #166534;' : 'background: #f1f5f9; color: #475569;'}">
-                        ${statusContent}
-                    </span>
-                </td>   
-                </tr>
+                const statusContent = m.done ? `<strong>${m.sA} - ${m.sB}</strong>` : `⏳ Not Started`;
+                return `
+                    <tr>
+                        <td>R ${m.round}</td><td>C ${m.court}</td><td>${m.time}</td>
+                        <td style="font-weight:bold;">${m.tA_cap} & ${m.tA_vc} vs ${m.tB_cap} & ${m.tB_vc}</td>
+                        <td>
+                            <span style="padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; ${m.done ? 'background: #dcfce7; color: #166534;' : 'background: #f1f5f9; color: #475569;'}">
+                                ${statusContent}
+                            </span>
+                        </td>   
+                    </tr>
                 `;
             }).join('');
         }
 
-        // Matrix
-        if(pairs && matches) {
-            let matrixHtml = '<tr><th>Team</th>' + pairs.map(p => `<th>${p.name}</th>`).join('') + '</tr>';
-            pairs.forEach((pI, i) => {
-                matrixHtml += `<tr><td>${pI.name}</td>`;
-                pairs.forEach((pJ, j) => {
-                    if (i === j) matrixHtml += `<td class="self-cell">-</td>`;
-                    else {
-                        const pairMatches = matches.filter(m => (m.tA === i && m.tB === j) || (m.tA === j && m.tB === i));
-                        const scores = pairMatches.filter(m => m.done).map(m => m.tA === i ? `${m.sA}-${m.sB}` : `${m.sB}-${m.sA}`).join('<br>');
-                        matrixHtml += `<td>${scores || '-'}</td>`;
-                    }
-                });
-                matrixHtml += '</tr>';
+        // --- Standings (Individual Logic) ---
+        if((advPlayers || intPlayers) && matches) {
+            let stats = {};
+            const allNames = [...(advPlayers || []), ...(intPlayers || [])];
+            allNames.forEach(name => {
+                stats[name] = { name, pld: 0, w: 0, l: 0, pts: 0, sc: 0 };
             });
-            document.getElementById('matrix-table').innerHTML = matrixHtml;
-        }
 
-        // Standings
-        if(pairs && matches) {
-            let stats = pairs.map(p => ({ name: p.name, pld: 0, w: 0, l: 0, pts: 0, sc: 0 }));
             matches.forEach(m => {
                 if (!m.done) return;
                 const sa = parseInt(m.sA), sb = parseInt(m.sB);
-                stats[m.tA].pld++; stats[m.tB].pld++; stats[m.tA].sc += sa; stats[m.tB].sc += sb;
-                if (sa > sb) { stats[m.tA].w++; stats[m.tA].pts += 2; stats[m.tB].l++; }
-                else { stats[m.tB].w++; stats[m.tB].pts += 2; stats[m.tA].l++; }
+                
+                [m.tA_cap, m.tA_vc].forEach(p => {
+                    if(!stats[p]) return;
+                    stats[p].pld++; stats[p].sc += sa;
+                    if (sa > sb) { stats[p].w++; stats[p].pts += 2; } else { stats[p].l++; }
+                });
+                
+                [m.tB_cap, m.tB_vc].forEach(p => {
+                    if(!stats[p]) return;
+                    stats[p].pld++; stats[p].sc += sb;
+                    if (sb > sa) { stats[p].w++; stats[p].pts += 2; } else { stats[p].l++; }
+                });
             });
-            stats.sort((a,b) => b.pts - a.pts || b.sc - a.sc);
-            document.getElementById('standings-body').innerHTML = stats.map((s, i) => `
+
+            let sortedStats = Object.values(stats).sort((a,b) => b.pts - a.pts || b.sc - a.sc);
+            document.getElementById('standings-body').innerHTML = sortedStats.map((s, i) => `
                 <tr class="${i < 2 ? 'highlight-finalist' : (i < 4 ? 'highlight-qualified' : '')}">
                     <td>${i+1}</td><td><strong>${s.name}</strong></td><td>${s.pld}</td><td>${s.w}</td><td>${s.l}</td><td><strong>${s.pts}</strong></td><td>${s.sc}</td>
                 </tr>
             `).join('');
         }
 
-        // Playoff
+        // --- Playoff ---
         if (playoffScores && Object.values(playoffScores).some(m => m.teamA)) {
             document.getElementById('playoff-section').style.display = 'block';
             const labels = { q1: '🚀 Qualifier 1 🚀', elim: '⚔️ Eliminator ⚔️', q2: '🔁 Qualifier 2 🔁' };
@@ -305,7 +287,6 @@
                 // We use a wrapper div with a specific ID to help the saver find it
                 document.getElementById('champion-display').innerHTML = `
                     <div class="champ-box" style="text-align: center; padding: 15px; border: 3px solid #b8860b; background-color: #ffffff; width: 100%; box-sizing: border-box;">
-                        
                         <div style="font-size: 14px; font-weight: bold; color: #b8860b; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 2px;">
                             🥇 CHAMPIONS 🥇
                         </div>
