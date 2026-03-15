@@ -40,6 +40,7 @@ function generateSchedule() {
         if (!confirmReshuffle) {
             // If they cancel, just take them to the existing overview without changing anything
             showStep('step-schedule-overview');
+            if (window.renderMatches) renderMatches();
             return; 
         }
     }
