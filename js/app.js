@@ -41,14 +41,6 @@ window.onload = function() {
 
     // Run your loadData function
     loadData();
-
-    // 4. NEW: Redirect to the last saved step
-    const lastStep = localStorage.getItem('bpl_last_step');
-    if (lastStep) {
-        showStep(lastStep);
-    } else {
-        showStep('step-welcome'); // Default if no history exists
-    }
 };
 	
 //Not lose Entered Data on refresh
@@ -104,31 +96,40 @@ function loadData() {
             // 1. Logic for Review/Courts back button
             if (lastStep === 'step-review' || lastStep === 'step-courts') {
                 const reviewBackBtn = document.getElementById('btn-review-back');
-                if (isManualMode) {
-                    reviewBackBtn.onclick = () => showStep('step-manual');
-                    document.getElementById('btn-shuffle-strict').classList.add('hidden');
-                    document.getElementById('btn-shuffle-random').classList.add('hidden');
-                } else {
-                    reviewBackBtn.onclick = () => showStep('step-int');
-                    document.getElementById('btn-shuffle-strict').classList.remove('hidden');
-                    document.getElementById('btn-shuffle-random').classList.remove('hidden');
+                if (reviewBackBtn) { // Safety check
+                    if (isManualMode) {
+                        reviewBackBtn.onclick = () => showStep('step-manual');
+                        document.getElementById('btn-shuffle-strict').classList.add('hidden');
+                        document.getElementById('btn-shuffle-random').classList.add('hidden');
+                    } else {
+                        reviewBackBtn.onclick = () => showStep('step-int');
+                        document.getElementById('btn-shuffle-strict').classList.remove('hidden');
+                        document.getElementById('btn-shuffle-random').classList.remove('hidden');
+                    }
                 }
-                if (window.renderReview) renderReview(); // Make sure the team list is drawn
+                if (window.renderReview) renderReview(); 
             }
 
-            // 2. Logic for Group Stage Stats (Matrix/Recap)
+            // 2. Logic for Group Stage Stats
             if (lastStep === 'results-section') {
-                if (window.calculateResults) calculateResults() 
+                if (window.calculateResults) calculateResults();
             }
 
             // 3. Logic for Final Leaderboard
             if (lastStep === 'leaderboard-section') {
-                if (window.calculateResults) calculateResults(); // Get the math ready
-                if (window.showLeaderboard) showLeaderboard();  // Draw the standings
+                if (window.calculateResults) calculateResults();
+                if (window.showLeaderboard) showLeaderboard();
             }
-        }
-    }
+            } else {
+                // NEW: If no step is saved, or we were on welcome, explicitly show welcome
+                showStep('step-welcome');
+            }
+            } else {
+                // NEW: If there is NO saved data at all (first time opening), show welcome
+                showStep('step-welcome');
+            }
 }
+
 
 function showStep(id) {
 	const step = document.getElementById(id);
