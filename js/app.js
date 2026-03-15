@@ -79,14 +79,20 @@ function loadData() {
             // --- FIX: Rebuild Overview Table on load to prevent empty display ---
             const overviewBody = document.getElementById('overview-table-body');
             if (overviewBody) {
-                overviewBody.innerHTML = matches.map(m => `
+                overviewBody.innerHTML = matches.map(m => {
+                    // SAFETY CHECK: Ensure the pairs exist before trying to read .name
+                    const teamAName = (pairs[m.tA]) ? pairs[m.tA].name : "TBD";
+                    const teamBName = (pairs[m.tB]) ? pairs[m.tB].name : "TBD";
+                    
+                    return `
                     <tr>
                         <td>${m.round}</td>
                         <td>Court ${m.court}</td>
                         <td>${m.time}</td>
-                        <td style="font-weight: bold;">${pairs[m.tA].name} vs ${pairs[m.tB].name}</td>
+                        <td style="font-weight: bold;">${teamAName} vs ${teamBName}</td>
                     </tr>
-                `).join('');
+                    `;
+                }).join('');
             }
         }
 
@@ -120,16 +126,13 @@ function loadData() {
                 if (window.calculateResults) calculateResults();
                 if (window.showLeaderboard) showLeaderboard();
             }
-            } else {
-                // NEW: If no step is saved, or we were on welcome, explicitly show welcome
-                showStep('step-welcome');
-            }
-            } else {
-                // NEW: If there is NO saved data at all (first time opening), show welcome
-                showStep('step-welcome');
-            }
+        } else {
+            showStep('step-welcome');
+        }
+    } else {
+        showStep('step-welcome');
+    }
 }
-
 
 function showStep(id) {
 	const step = document.getElementById(id);
