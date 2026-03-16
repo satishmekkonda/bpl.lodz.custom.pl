@@ -50,57 +50,99 @@ function generateSchedule() {
     let [startH, startM] = document.getElementById('start-time').value.split(':').map(Number);
     let totalMin = startH * 60 + startM;
 
-    matches = [];
-    let matchId = 1;
-    let roundCount = 1;
     const N = advPlayers.length;
+    const totalPairsGenerated = N * rrSets;
 
-    for (let s = 0; s < rrSets; s++) {
-        let roundPairs = [];
-        
-        // Form pairs dynamically: Cap i with VC (i + shift)
-        for (let i = 0; i < N; i++) {
-            roundPairs.push({
-                cap: advPlayers[i],
-                vc: intPlayers[(i + s) % N]
-            });
-        }
-
-        // Randomize the matchups to prevent playing the same opponents
-        roundPairs.sort(() => 0.5 - Math.random());
-
-        let usedCourts = 0;
-        for (let p = 0; p < roundPairs.length - 1; p += 2) {
-            let teamA = roundPairs[p];
-            let teamB = roundPairs[p+1];
-
-            let timeStr = `${Math.floor(totalMin/60).toString().padStart(2,'0')}:${(totalMin%60).toString().padStart(2,'0')}`;
-
-            matches.push({
-                id: matchId++,
-                round: roundCount,
-                court: usedCourts + 1,
-                time: timeStr,
-                tA_cap: teamA.cap, tA_vc: teamA.vc,
-                tB_cap: teamB.cap, tB_vc: teamB.vc,
-                sA: '', sB: '', done: false
-            });
-
-            usedCourts++;
-            if (usedCourts >= courtLimit) {
-                usedCourts = 0;
-                totalMin += 20;
-            }
-        }
-        if (usedCourts > 0) totalMin += 20;
-        roundCount++;
+    // --- STRICT PREVENTION LOGIC ---
+    // This stops the process entirely if the math doesn't result in even matches.
+    if (totalPairsGenerated % 2 !== 0) {
+        alert(
+            `❌ SCHEDULE BLOCKED\n\n` +
+            `Current Setup: ${N} Teams x ${rrSets} Rounds = ${totalPairsGenerated} Total Pairings.\n` +
+            `Problem: You cannot have a tournament with an ODD number of pairings.\n\n` +
+            `FIX: Please change the 'Round Robin Number' to an EVEN number (like ${rrSets - 1} or ${rrSets + 1}) so every player plays equal number of matches.`
+        );
+        return; // Stops the function here. The user stays on the settings page.
     }
 
-    // Populate Overview
+    matches = [];
+    pairs = []; // Reset global pairs for results tracking
+    let allGeneratedPairs = [];
+
+    // 1. Generate the Pool of all pairings across all sets
+    for (let s = 0; s < rrSets; s++) {
+        let setPairs = [];
+        for (let i = 0; i < N; i++) {
+            let team = {
+                name: `${advPlayers[i]} & ${intPlayers[(i + s) % N]}`,
+                cap: advPlayers[i],
+                vc: intPlayers[(i + s) % N]
+            };
+            setPairs.push(team);
+
+            // Register unique teams globally for the Results/Live Table
+            if (!pairs.find(p => p.name === team.name)) {
+                pairs.push(team);
+            }
+        }
+        // Randomize each set individually before adding to the main pool
+        setPairs.sort(() => 0.5 - Math.random());
+        allGeneratedPairs.push(...setPairs);
+    }
+
+    // 2. Create Matches from the Queue
+    let matchId = 1;
+    let usedCourts = 0;
+    let currentRoundInView = 1;
+
+    while (allGeneratedPairs.length >= 2) {
+        let teamA = allGeneratedPairs.shift();
+        let teamB = allGeneratedPairs.shift();
+
+        // Get indexes for scoring logic
+        let idxA = pairs.findIndex(x => x.name === teamA.name);
+        let idxB = pairs.findIndex(x => x.name === teamB.name);
+
+        let timeStr = `${Math.floor(totalMin/60).toString().padStart(2,'0')}:${(totalMin%60).toString().padStart(2,'0')}`;
+
+        matches.push({
+            id: matchId++,
+            round: currentRoundInView,
+            court: usedCourts + 1,
+            time: timeStr,
+            tA: idxA, 
+            tB: idxB,
+            tA_cap: teamA.cap, tA_vc: teamA.vc,
+            tB_cap: teamB.cap, tB_vc: teamB.vc,
+            sA: '', sB: '', done: false
+        });
+
+        usedCourts++;
+        // If courts are full, move to next time slot
+        if (usedCourts >= courtLimit) {
+            usedCourts = 0;
+            totalMin += 20;
+            currentRoundInView++; 
+        }
+    }
+
+    // 3. Handle any leftover team (Display warning in console or UI)
+    if (allGeneratedPairs.length === 1) {
+        console.warn("Odd team out (No opponent):", allGeneratedPairs[0].name);
+    }
+
+    // 4. Update UI and Save
     const overviewBody = document.getElementById('overview-table-body');
-    overviewBody.innerHTML = matches.map(m => `
-        <tr><td>${m.round}</td><td>Court ${m.court}</td><td>${m.time}</td><td style="font-weight: bold;">${m.tA_cap} & ${m.tA_vc} vs ${m.tB_cap} & ${m.tB_vc}</td></tr>
-    `).join('');
+    if (overviewBody) {
+        overviewBody.innerHTML = matches.map(m => `
+            <tr>
+                <td>${m.round}</td>
+                <td>Court ${m.court}</td>
+                <td>${m.time}</td>
+                <td style="font-weight: bold;">${m.tA_cap} & ${m.tA_vc} vs ${m.tB_cap} & ${m.tB_vc}</td>
+            </tr>
+        `).join('');
+    }
 
     saveData(); 
     showStep('step-schedule-overview');
