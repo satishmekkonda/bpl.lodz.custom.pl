@@ -33,27 +33,31 @@ function handleLogout() {
 
 // --- SCHEDULE GENERATION (Rotational Logic) ---
 function generateSchedule() {
-    // --- NEW: PREVENTION CHECK ---
-    // Added to prevent accidental reshuffling when you just want to view the schedule
+    // --- 1. PREVENTION: Existing Schedule ---
+    // Added to prevent accidental reshuffling when you just want to view the schedul
     if (matches && matches.length > 0) {
         const confirmReshuffle = confirm("A schedule already exists, are you sure you want to RE-GENERATE?");
         if (!confirmReshuffle) {
-            // If they cancel, just take them to the existing overview without changing anything
+        // If they cancel, just take them to the existing overview without changing anything
             showStep('step-schedule-overview');
             if (window.renderMatches) renderMatches();
             return; 
         }
     }
 
-    const courtLimit = parseInt(document.getElementById('court-count').value);
-    const rrSets = parseInt(document.getElementById('rr-matches').value) || 1;
-    let [startH, startM] = document.getElementById('start-time').value.split(':').map(Number);
-    let totalMin = startH * 60 + startM;
-
+    // --- 2. DATA VALIDATION (New Safety Check) ---
     const N = advPlayers.length;
+    const M = intPlayers.length;
+    if (N === 0 || M === 0 || N !== M) {
+        alert(`❌ DATA MISMATCH\n\nYou have ${N} Captains and ${M} Vice-Captains. \n\nBoth groups must have the same number of players to form pairs.`);
+        return;
+    }
+
+    const courtLimit = parseInt(document.getElementById('court-count').value) || 1;
+    const rrSets = parseInt(document.getElementById('rr-matches').value) || 1;
     const totalPairsGenerated = N * rrSets;
 
-    // --- STRICT PREVENTION LOGIC ---
+    // --- 3. STRICT MATH CHECK (The "Blinder" Protection) ---
     // This stops the process entirely if the math doesn't result in even matches.
     if (totalPairsGenerated % 2 !== 0) {
         alert(
@@ -65,11 +69,14 @@ function generateSchedule() {
         return; // Stops the function here. The user stays on the settings page.
     }
 
+    // --- 4. SETUP ---
+    let [startH, startM] = (document.getElementById('start-time').value || "10:00").split(':').map(Number);
+    let totalMin = startH * 60 + startM;
     matches = [];
-    pairs = []; // Reset global pairs for results tracking
+    pairs = []; 
     let allGeneratedPairs = [];
 
-    // 1. Generate the Pool of all pairings across all sets
+    // --- 5. GENERATE POOL ---
     for (let s = 0; s < rrSets; s++) {
         let setPairs = [];
         for (let i = 0; i < N; i++) {
@@ -79,36 +86,37 @@ function generateSchedule() {
                 vc: intPlayers[(i + s) % N]
             };
             setPairs.push(team);
-
-            // Register unique teams globally for the Results/Live Table
+            
+            // Register unique teams for the results table mapping
             if (!pairs.find(p => p.name === team.name)) {
                 pairs.push(team);
             }
         }
-        // Randomize each set individually before adding to the main pool
+        // Shuffle this set to ensure people don't play in the same order every time
         setPairs.sort(() => 0.5 - Math.random());
         allGeneratedPairs.push(...setPairs);
     }
 
-    // 2. Create Matches from the Queue
+    // --- 6. MATCHMAKING QUEUE ---
     let matchId = 1;
-    let usedCourts = 0;
-    let currentRoundInView = 1;
+    let usedCourtsInCurrentSlot = 0;
+    let currentRoundNumber = 1;
 
     while (allGeneratedPairs.length >= 2) {
         let teamA = allGeneratedPairs.shift();
         let teamB = allGeneratedPairs.shift();
-
         // Get indexes for scoring logic
+
         let idxA = pairs.findIndex(x => x.name === teamA.name);
         let idxB = pairs.findIndex(x => x.name === teamB.name);
-
+        
+        // Formating Time string (HH:MM)
         let timeStr = `${Math.floor(totalMin/60).toString().padStart(2,'0')}:${(totalMin%60).toString().padStart(2,'0')}`;
 
         matches.push({
             id: matchId++,
-            round: currentRoundInView,
-            court: usedCourts + 1,
+            round: currentRoundNumber,
+            court: usedCourtsInCurrentSlot + 1,
             time: timeStr,
             tA: idxA, 
             tB: idxB,
@@ -117,21 +125,17 @@ function generateSchedule() {
             sA: '', sB: '', done: false
         });
 
-        usedCourts++;
-        // If courts are full, move to next time slot
-        if (usedCourts >= courtLimit) {
-            usedCourts = 0;
+        usedCourtsInCurrentSlot++;
+        
+        // When courts are full, move to the next time slot
+        if (usedCourtsInCurrentSlot >= courtLimit) {
+            usedCourtsInCurrentSlot = 0;
             totalMin += 20;
-            currentRoundInView++; 
+            currentRoundNumber++;
         }
     }
 
-    // 3. Handle any leftover team (Display warning in console or UI)
-    if (allGeneratedPairs.length === 1) {
-        console.warn("Odd team out (No opponent):", allGeneratedPairs[0].name);
-    }
-
-    // 4. Update UI and Save
+    // --- 7. FINAL RENDER & SAVE ---
     const overviewBody = document.getElementById('overview-table-body');
     if (overviewBody) {
         overviewBody.innerHTML = matches.map(m => `
@@ -146,8 +150,8 @@ function generateSchedule() {
 
     saveData(); 
     showStep('step-schedule-overview');
-    renderMatches();
-    updateLiveTable();
+    if (window.renderMatches) renderMatches();
+    if (window.updateLiveTable) updateLiveTable();
 }
 
 function renderMatches() {
