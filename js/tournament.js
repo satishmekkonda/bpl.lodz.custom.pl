@@ -143,7 +143,7 @@ function generateSchedule() {
                 <td>${m.round}</td>
                 <td>Court ${m.court}</td>
                 <td>${m.time}</td>
-                <td style="font-weight: bold;">${m.tA_cap} & ${m.tA_vc} vs ${m.tB_cap} & ${m.tB_vc}</td>
+                <td style="font-weight: bold;">${m.tA_cap} - ${m.tA_vc} vs ${m.tB_cap} - ${m.tB_vc}</td>
             </tr>
         `).join('');
     }
