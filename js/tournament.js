@@ -323,14 +323,57 @@ function showLeaderboard() {
     }).join('');
 
     // 3. Playoff Logic (Top 4 individuals play singles/chosen format)
-    if (sorted.length >= 4) {
+    // 3. New Playoff Logic: Pairing top 8 players based on rank and role
+    // 3. New Playoff Logic: Role-based Ranking Priority Pairing
+    if (sorted.length >= 8) {
+        // Only calculate if scores haven't been entered yet to avoid overwriting edits
         if (!playoffScores.q1.done && !playoffScores.q1.sA && !playoffScores.q1.sB) {
-            playoffScores.q1.teamA = sorted[0].name; 
-            playoffScores.q1.teamB = sorted[1].name;
-        }
-        if (!playoffScores.elim.done && !playoffScores.elim.sA && !playoffScores.elim.sB) {
-            playoffScores.elim.teamA = sorted[2].name; 
-            playoffScores.elim.teamB = sorted[3].name;
+            
+            let playoffTeams = [];
+            let pairedNames = new Set(); // Keep track of players already in a pair
+
+            // We need to form 4 teams (8 players total)
+            for (let i = 0; i < sorted.length; i++) {
+                if (playoffTeams.length >= 4) break; // Stop once we have 4 teams
+                
+                let p1 = sorted[i];
+                if (pairedNames.has(p1.name)) continue; // Skip if already paired
+
+                const isP1Captain = advPlayers.includes(p1.name);
+                
+                // Find the best available partner of the opposite role further down the list
+                let p2 = null;
+                for (let j = 0; j < sorted.length; j++) {
+                    let potentialPartner = sorted[j];
+                    
+                    // Partner must: not be p1, not be paired yet, and be the opposite role
+                    if (p1.name !== potentialPartner.name && !pairedNames.has(potentialPartner.name)) {
+                        const isPartnerCaptain = advPlayers.includes(potentialPartner.name);
+                        
+                        if (isP1Captain !== isPartnerCaptain) {
+                            p2 = potentialPartner;
+                            break; // Found the highest ranked available opposite role
+                        }
+                    }
+                }
+
+                if (p1 && p2) {
+                    pairedNames.add(p1.name);
+                    pairedNames.add(p2.name);
+                    
+                    // Format team name: Captain always first for consistency
+                    let teamName = isP1Captain ? `${p1.name} & ${p2.name}` : `${p2.name} & ${p1.name}`;
+                    playoffTeams.push(teamName);
+                }
+            }
+
+            // Assign the 4 teams to the bracket positions
+            if (playoffTeams.length === 4) {
+                playoffScores.q1.teamA = playoffTeams[0];   // Match 1
+                playoffScores.q1.teamB = playoffTeams[1];   // Match 1
+                playoffScores.elim.teamA = playoffTeams[2]; // Match 2
+                playoffScores.elim.teamB = playoffTeams[3]; // Match 2
+            }
         }
     }
 
